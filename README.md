@@ -1,5 +1,13 @@
-# postgres-speedtest
+# PostgreSQL Speed Test
 Speed test for a PostgreSQL server
+
+## Methodology
+Thirty (30) trials will be conducted. In each trial, the following queries will
+be run. This simulates an average workload for SQL.
+
+1. Creation of 3 tables, each with 2-8 columns.
+2. 5 insert statements, to bootstrap the table with some data.
+3. 1000 random statements of type select, insert, update, or delete.
 
 ## License
 ```
