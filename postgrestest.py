@@ -1,7 +1,11 @@
+import argparse
+import configparser
 import csv
+import io
 import os
 import pathlib
 import random
+import shutil
 import sys
 import time
 import typing
@@ -25,9 +29,11 @@ def rand_str(identifiers_list: list[str]) -> str:
     identifiers_list.append(out_str)
     return out_str
 
-def create_test_queries() -> list[str]:
+def create_test_queries(num_queries: int) -> list[str]:
     """
     Creates the test queries
+
+    :param num_queries: The number of queries to create
     """
     valid_types: tuple[str, ...] = ("INTEGER", "VARCHAR(50)")
     created_strs: list[str] = []
@@ -37,7 +43,6 @@ def create_test_queries() -> list[str]:
     # insert into each table.
     num_tables: int = 3
     num_inserts_per_table: int = 5
-    num_queries: int = int(os.environ["PGTEST_QUERYCOUNT"].strip())
 
     sql_tables: dict[str, dict[str, str]] = {}
 
@@ -165,17 +170,25 @@ def create_test_queries() -> list[str]:
     return output_queries
 
 
-def runsqltest(sql_queries: list[str]) -> None:
+def runsqltest(sql_queries: list[str], pg_user: str,
+               pg_pwd: str, pg_host: str, pg_port: int, pg_db: str) -> None:
     """
+    Runs a test for PostgreSQL performance.
+
     :param sql_queries: The SQL queries to run.
+    :param pg_user: The PostgreSQL username to run as
+    :param pg_pwd: The PostgreSQL password to use
+    :param pg_host: The hostname of the PostgreSQL server to test.
+    :param pg_port: The port that the PostgreSQL server is running on.
+    :param pg_db: The database to use to perform the tests.
     """
     connection_url_tpl: str = "postgresql://{user}:{pwd}@{host}:{port}/{db}"
     connection_url: str = connection_url_tpl.format(
-        user=os.environ["PG_USERNAME"],
-        pwd=os.environ["PG_PASSWORD"],
-        host=os.environ["PG_HOST"],
-        port=os.environ["PG_PORT"],
-        db=os.environ["PG_DATABASE"],
+        user=pg_user,
+        pwd=pg_pwd,
+        host=pg_host,
+        port=pg_port,
+        db=pg_db,
     )
     pg_connection: psycopg.Connection
     with psycopg.connect(connection_url) as pg_connection:
@@ -185,24 +198,64 @@ def runsqltest(sql_queries: list[str]) -> None:
                 pg_connection.commit()
 
 def main(argv: list[str]) -> int:
-    test_trial_count: int = 30
+    argparser: argparse.ArgumentParser = argparse.ArgumentParser()
+    argparser.add_argument("--test-trials", type=int, default=30,
+                           help="The number of trials to perform")
+    parsedargs: dict[str, typing.Any] = vars(argparser.parse_args(argv[1:]))
+
+    # Some variables to define
+    test_trial_count: int = parsedargs["test_trials"]
     """The number of trials to perform."""
+    test_output_files: dict[str, io.TextIOWrapper] = {}
+    """
+    Mapping of test_name to test_output_file
+    """
 
-    with open(pathlib.Path(os.environ["PGTEST_OUTFILE"]), 'w') as output_file:
-        for i in range(test_trial_count):
-            print(i, "generating queries")
+    config_file: configparser.ConfigParser = configparser.ConfigParser()
+    config_file.read("postgrestest.ini")
+    test_output_dir: pathlib.Path = pathlib.Path(
+            config_file["General"]["outdir"])
+    """The directory where test output will be placed"""
+    if test_output_dir.is_dir():
+        shutil.rmtree(str(test_output_dir))
+    elif test_output_dir.exists():
+        print(f"ERROR: Expected \"{test_output_dir}\" to be a directory, " + 
+              "but it is not.")
+        return 1
+    test_output_dir.mkdir()
 
-            # Create the queries
-            trial_queries_list: list[str] = create_test_queries()
+    # Add all the output files to the dict.
+    for database_name in config_file["General"]["databases"].split(","):
+        test_output_files[database_name.strip()] = \
+                open(test_output_dir / database_name.strip(), 'w')
 
-            print(i, "running queries")
+    target_query_count: int = int(config_file["General"]["querycount"].strip())
+    """The number of queries to test, per trial"""
+
+    # Run the trials
+    for i in range(test_trial_count):
+        print(f"\nTrial {i}:")
+
+        print("Generating queries...")
+        # Create the queries
+        trial_queries_list: list[str] = create_test_queries(target_query_count)
+
+        for test_name, test_output_file in test_output_files.items():
+            print(f"Running queries against database {test_name}...")
             # Time how long it takes to run the queries
             test_start_time: float = time.time()
-            runsqltest(trial_queries_list)
+            runsqltest(
+                sql_queries=trial_queries_list,
+                pg_host=config_file[test_name]["PG_HOSTNAME"],
+                pg_port=int(config_file[test_name]["PG_PORT"].strip()),
+                pg_user=config_file[test_name]["PG_USERNAME"],
+                pg_pwd=config_file[test_name]["PG_PASSWORD"],
+                pg_db=config_file[test_name]["PG_DATABASE"],
+            )
             test_duration: float = time.time() - test_start_time
 
             # Write the amount of time taken to a file
-            output_file.write(str(round(test_duration, 3)) + "\n")
+            test_output_file.write(str(round(test_duration, 4)) + "\n")
 
     return 0
 

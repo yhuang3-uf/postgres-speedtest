@@ -1,5 +1,7 @@
 # PostgreSQL Speed Test
-Speed test for a PostgreSQL server
+Paired speed comparison for a PostgreSQL server.
+
+Compares the throughput of PostgreSQL server against another.
 
 ## Methodology
 Thirty (30) trials will be conducted. In each trial, the following queries will
@@ -8,6 +10,11 @@ be run. This simulates an average workload for SQL.
 1. Creation of 3 tables, each with 2-8 columns.
 2. 5 insert statements, to bootstrap the table with some data.
 3. 1000 random statements of type select, insert, update, or delete.
+
+## Instructions
+Edit the file `postgrestest.ini` with the connection information for the servers you want to compare.
+
+This program is single-threaded. It is recommended to host the PostgreSQL server on another machine, or at least set its affinity to a different CPU from the testing if testing on a single multicore machine.
 
 ## License
 ```
