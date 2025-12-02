@@ -14,7 +14,7 @@ import psycopg
 
 def rand_str(identifiers_list: list[str]) -> str:
     """
-    Generates a random string between 3 and 12 characters.
+    Generates a random string between 5 and 12 characters.
     The string will only contain lowercase ASCII symbols.
 
     The string will be appended to identifiers_list
