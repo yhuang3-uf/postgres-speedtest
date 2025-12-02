@@ -29,20 +29,19 @@ def rand_str(identifiers_list: list[str]) -> str:
     identifiers_list.append(out_str)
     return out_str
 
-def create_test_queries(num_queries: int) -> list[str]:
+def create_test_queries(num_queries: int, num_tables: int,
+                        num_inserts_per_table: int) -> list[str]:
     """
     Creates the test queries
 
     :param num_queries: The number of queries to create
+    :param num_tables: The number of tables to create.
+    :param num_inserts_per_table: The number of queries to insert
+    into the table.
     """
     valid_types: tuple[str, ...] = ("INTEGER", "VARCHAR(50)")
     created_strs: list[str] = []
     output_queries: list[str] = []
-
-    # The number of tables to create and the number of entries to
-    # insert into each table.
-    num_tables: int = 3
-    num_inserts_per_table: int = 5
 
     sql_tables: dict[str, dict[str, str]] = {}
 
@@ -232,30 +231,42 @@ def main(argv: list[str]) -> int:
     target_query_count: int = int(config_file["General"]["querycount"].strip())
     """The number of queries to test, per trial"""
 
+    table_entry_counts: list[tuple[int, int]] = [
+        (5, 100),
+        (4, 300),
+        (3, 1000),
+        (2, 3000),
+        (2, 10000),
+    ]
+    """List of table_count, entry_count to test."""
+
     # Run the trials
-    for i in range(test_trial_count):
-        print(f"\nTrial {i}:")
+    for table_count, entry_count in table_entry_counts:
+        for i in range(test_trial_count):
+            print(f"\nTrial {i}:")
 
-        print("Generating queries...")
-        # Create the queries
-        trial_queries_list: list[str] = create_test_queries(target_query_count)
+            print("Generating queries...")
+            # Create the queries
+            trial_queries_list: list[str] = create_test_queries(
+                    target_query_count, table_count, entry_count)
 
-        for test_name, test_output_file in test_output_files.items():
-            print(f"Running queries against database {test_name}...")
-            # Time how long it takes to run the queries
-            test_start_time: float = time.time()
-            runsqltest(
-                sql_queries=trial_queries_list,
-                pg_host=config_file[test_name]["PG_HOSTNAME"],
-                pg_port=int(config_file[test_name]["PG_PORT"].strip()),
-                pg_user=config_file[test_name]["PG_USERNAME"],
-                pg_pwd=config_file[test_name]["PG_PASSWORD"],
-                pg_db=config_file[test_name]["PG_DATABASE"],
-            )
-            test_duration: float = time.time() - test_start_time
+            for test_name, test_output_file in test_output_files.items():
+                print(f"Running queries against database {test_name}...")
+                # Time how long it takes to run the queries
+                test_start_time: float = time.time()
+                runsqltest(
+                    sql_queries=trial_queries_list,
+                    pg_host=config_file[test_name]["PG_HOSTNAME"],
+                    pg_port=int(config_file[test_name]["PG_PORT"].strip()),
+                    pg_user=config_file[test_name]["PG_USERNAME"],
+                    pg_pwd=config_file[test_name]["PG_PASSWORD"],
+                    pg_db=config_file[test_name]["PG_DATABASE"],
+                )
+                test_duration: float = time.time() - test_start_time
 
-            # Write the amount of time taken to a file
-            test_output_file.write(str(round(test_duration, 4)) + "\n")
+                # Write the amount of time taken to a file
+                test_output_file.write(f"{table_count},{entry_count}," + 
+                                       str(round(test_duration, 4)) + "\n")
 
     return 0
 
