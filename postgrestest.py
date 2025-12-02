@@ -198,13 +198,9 @@ def runsqltest(sql_queries: list[str], pg_user: str,
 
 def main(argv: list[str]) -> int:
     argparser: argparse.ArgumentParser = argparse.ArgumentParser()
-    argparser.add_argument("--test-trials", type=int, default=30,
-                           help="The number of trials to perform")
     parsedargs: dict[str, typing.Any] = vars(argparser.parse_args(argv[1:]))
 
     # Some variables to define
-    test_trial_count: int = parsedargs["test_trials"]
-    """The number of trials to perform."""
     test_output_files: dict[str, io.TextIOWrapper] = {}
     """
     Mapping of test_name to test_output_file
@@ -215,6 +211,8 @@ def main(argv: list[str]) -> int:
     test_output_dir: pathlib.Path = pathlib.Path(
             config_file["General"]["outdir"])
     """The directory where test output will be placed"""
+    test_trial_count: int = int(config_file["General"]["testtrials"].strip())
+    """The number of trials to perform."""
     if test_output_dir.is_dir():
         shutil.rmtree(str(test_output_dir))
     elif test_output_dir.exists():
@@ -232,11 +230,10 @@ def main(argv: list[str]) -> int:
     """The number of queries to test, per trial"""
 
     table_entry_counts: list[tuple[int, int]] = [
-        (5, 100),
         (4, 300),
-        (3, 1000),
-        (2, 3000),
-        (2, 10000),
+        (4, 1000),
+        (5, 3000),
+        (5, 10000),
     ]
     """List of table_count, entry_count to test."""
 

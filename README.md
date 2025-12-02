@@ -7,9 +7,9 @@ Compares the throughput of PostgreSQL server against another.
 Thirty (30) trials will be conducted. In each trial, the following queries will
 be run. This simulates an average workload for SQL.
 
-1. Creation of 3 tables, each with 2-8 columns.
-2. 5 insert statements, to bootstrap the table with some data.
-3. 1000 random statements of type select, insert, update, or delete.
+1. Creation of 4 tables, each with 2-8 columns.
+2. Between 100 and 10000 rows will be inserted into each table.
+3. 5000 random statements of type select, insert, update, or delete.
 
 ## Instructions
 Edit the file `postgrestest.ini` with the connection information for the servers you want to compare.
